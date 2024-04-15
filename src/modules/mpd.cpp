@@ -1,6 +1,8 @@
 #include "modules/mpd.hpp"
 
 #include <csignal>
+#include <format>
+#include <regex>
 
 #include "drawtypes/iconset.hpp"
 #include "drawtypes/label.hpp"
@@ -19,6 +21,7 @@ namespace modules {
     m_router->register_action(EVENT_STOP, [this]() { action_stop(); });
     m_router->register_action(EVENT_PREV, [this]() { action_prev(); });
     m_router->register_action(EVENT_NEXT, [this]() { action_next(); });
+    m_router->register_action(EVENT_SHUFFLE, [this]() { action_next(); });
     m_router->register_action(EVENT_REPEAT, [this]() { action_repeat(); });
     m_router->register_action(EVENT_SINGLE, [this]() { action_single(); });
     m_router->register_action(EVENT_RANDOM, [this]() { action_random(); });
@@ -30,13 +33,17 @@ namespace modules {
     m_pass = m_conf.get(name(), "password", m_pass);
     m_synctime = m_conf.get(name(), "interval", m_synctime);
 
+    m_highlight_left = m_conf.get(name(), "highlight-left", "-"s);
+    m_highlight_right = m_conf.get(name(), "highlight-right", "-"s);
+
     // Add formats and elements {{{
     auto format_online = m_conf.get<string>(name(), FORMAT_ONLINE, TAG_LABEL_SONG);
     for (auto&& format : {FORMAT_PLAYING, FORMAT_PAUSED, FORMAT_STOPPED}) {
       m_formatter->add(format, format_online,
           {TAG_BAR_PROGRESS, TAG_TOGGLE, TAG_TOGGLE_STOP, TAG_LABEL_SONG, TAG_LABEL_TIME, TAG_ICON_RANDOM,
-              TAG_ICON_REPEAT, TAG_ICON_REPEAT_ONE, TAG_ICON_SINGLE, TAG_ICON_PREV, TAG_ICON_STOP, TAG_ICON_PLAY,
-              TAG_ICON_PAUSE, TAG_ICON_NEXT, TAG_ICON_SEEKB, TAG_ICON_SEEKF, TAG_ICON_CONSUME});
+              TAG_ICON_REPEAT, TAG_ICON_REPEAT_ONE, TAG_HIGHLIGHT_START, TAG_HIGHLIGHT_END, TAG_ICON_SINGLE,
+              TAG_ICON_PREV, TAG_ICON_STOP, TAG_ICON_PLAY, TAG_ICON_PAUSE, TAG_ICON_NEXT, TAG_ICON_SHUFFLE,
+              TAG_ICON_SEEKB, TAG_ICON_SEEKF, TAG_ICON_CONSUME});
 
       auto mod_format = m_formatter->get(format);
 
@@ -84,6 +91,9 @@ namespace modules {
     if (m_formatter->has(TAG_ICON_NEXT)) {
       m_icons->add("next", load_label(m_conf, name(), TAG_ICON_NEXT));
     }
+    if (m_formatter->has(TAG_ICON_SHUFFLE)) {
+      m_icons->add("shuffle", load_label(m_conf, name(), TAG_ICON_SHUFFLE));
+    }
     if (m_formatter->has(TAG_ICON_SEEKB)) {
       m_icons->add("seekb", load_label(m_conf, name(), TAG_ICON_SEEKB));
     }
@@ -114,6 +124,10 @@ namespace modules {
     }
     if (m_formatter->has(TAG_LABEL_TIME)) {
       m_label_time = load_optional_label(m_conf, name(), TAG_LABEL_TIME, "%elapsed% / %total%");
+    }
+    if (m_formatter->has(TAG_HIGHLIGHT_START) && m_formatter->has(TAG_HIGHLIGHT_END)) {
+      m_highlight_start = load_optional_label(m_conf, name(), TAG_HIGHLIGHT_START, "%hl_start%");
+      m_highlight_end = load_optional_label(m_conf, name(), TAG_HIGHLIGHT_END, "%{H}");
     }
     if (m_formatter->has(TAG_ICON_RANDOM) || m_formatter->has(TAG_ICON_REPEAT) ||
         m_formatter->has(TAG_ICON_REPEAT_ONE) || m_formatter->has(TAG_ICON_SINGLE) ||
@@ -204,11 +218,12 @@ namespace modules {
       return def;
     }
 
-    if ((m_label_time || m_bar_progress) && m_status->match_state(mpdstate::PLAYING)) {
+    if ((m_label_time || m_bar_progress || (m_highlight_start && m_highlight_end)) &&
+        m_status->match_state(mpdstate::PLAYING)) {
       auto now = chrono::steady_clock::now();
       auto diff = now - m_lastsync;
 
-      if (chrono::duration_cast<chrono::milliseconds>(diff).count() > m_synctime * 1000) {
+      if (chrono::duration_cast<chrono::milliseconds>(diff).count() > m_synctime * 100) {
         m_lastsync = now;
         return true;
       }
@@ -282,6 +297,11 @@ namespace modules {
       m_label_time->replace_token("%total%", total_str);
     }
 
+    if (m_highlight_start && m_highlight_end) {
+      m_highlight_start->reset_tokens();
+      m_highlight_end->reset_tokens();
+    }
+
     if (m_icons->has("random")) {
       m_icons->get("random")->m_foreground = m_status && m_status->random() ? m_toggle_on_color : m_toggle_off_color;
     }
@@ -332,6 +352,13 @@ namespace modules {
       builder->node(m_bar_progress->output(!m_status ? 0 : m_status->get_elapsed_percentage()));
     } else if (tag == TAG_LABEL_OFFLINE) {
       builder->node(m_label_offline);
+    } else if (tag == TAG_HIGHLIGHT_START) {
+      label_t temp = m_highlight_start->clone();
+      temp->replace_token("%hl_start%", std::format("%{{H:{}:{}:{}}}", m_highlight_left, m_highlight_right,
+                                            static_cast<double>(m_status->get_elapsed_percentage()) / 100));
+      builder->node(temp);
+    } else if (tag == TAG_HIGHLIGHT_END) {
+      builder->node(m_highlight_end);
     } else if (tag == TAG_ICON_RANDOM) {
       builder->action(mousebtn::LEFT, *this, EVENT_RANDOM, "", m_icons->get("random"));
     } else if (tag == TAG_ICON_REPEAT) {
@@ -350,6 +377,8 @@ namespace modules {
       builder->action(mousebtn::LEFT, *this, EVENT_PLAY, "", m_icons->get("play"));
     } else if (tag == TAG_ICON_NEXT) {
       builder->action(mousebtn::LEFT, *this, EVENT_NEXT, "", m_icons->get("next"));
+    } else if (tag == TAG_ICON_SHUFFLE) {
+      builder->action(mousebtn::LEFT, *this, EVENT_SHUFFLE, "", m_icons->get("shuffle"));
     } else if (tag == TAG_ICON_SEEKB) {
       builder->action(mousebtn::LEFT, *this, EVENT_SEEK, "-5"s, m_icons->get("seekb"));
     } else if (tag == TAG_ICON_SEEKF) {
@@ -411,6 +440,14 @@ namespace modules {
     }
   }
 
+  void mpd_module::action_shuffle() {
+    MPD_CONNECT();
+
+    if (!status->match_state(mpdstate::STOPPED)) {
+      mpd->shuffle();
+    }
+  }
+
   void mpd_module::action_repeat() {
     MPD_CONNECT();
     mpd->set_repeat(!status->repeat());
@@ -448,6 +485,6 @@ namespace modules {
   }
 
 #undef MPD_CONNECT
-}  // namespace modules
+} // namespace modules
 
 POLYBAR_NS_END

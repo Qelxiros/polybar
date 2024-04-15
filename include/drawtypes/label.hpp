@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <chrono>
 
 #include "common.hpp"
 #include "components/config.hpp"
@@ -42,10 +43,31 @@ namespace drawtypes {
     bool m_ellipsis{true};
 
     explicit label(string text, int font) : m_font(font), m_text(move(text)), m_tokenized(m_text) {}
+    // explicit label(string text, rgba foreground = rgba{}, rgba background = rgba{}, rgba underline = rgba{},
+    //     rgba overline = rgba{}, int font = 0, side_values padding = {ZERO_SPACE, ZERO_SPACE},
+    //     side_values margin = {ZERO_SPACE, ZERO_SPACE}, int minlen = 0, size_t maxlen = 0_z,
+    //     alignment label_alignment = alignment::LEFT, bool ellipsis = true, vector<token>&& tokens = {})
+    //     : m_foreground(move(foreground))
+    //     , m_background(move(background))
+    //     , m_underline(move(underline))
+    //     , m_overline(move(overline))
+    //     , m_font(font)
+    //     , m_padding(padding)
+    //     , m_margin(margin)
+    //     , m_minlen(minlen)
+    //     , m_maxlen(maxlen)
+    //     , m_alignment(label_alignment)
+    //     , m_ellipsis(ellipsis)
+    //     , m_text(move(text))
+    //     , m_tokenized(m_text)
+    //     , m_tokens(forward<vector<token>>(tokens)) {
+    //   assert(!m_ellipsis || (m_maxlen == 0 || m_maxlen >= 3));
+    // }
     explicit label(string text, rgba foreground = rgba{}, rgba background = rgba{}, rgba underline = rgba{},
         rgba overline = rgba{}, int font = 0, side_values padding = {ZERO_SPACE, ZERO_SPACE},
         side_values margin = {ZERO_SPACE, ZERO_SPACE}, int minlen = 0, size_t maxlen = 0_z,
-        alignment label_alignment = alignment::LEFT, bool ellipsis = true, vector<token>&& tokens = {})
+        alignment label_alignment = alignment::LEFT, bool ellipsis = true, vector<token>&& tokens = {},
+        bool scroll = false, size_t offset = 0, string sep = "  "s)
         : m_foreground(move(foreground))
         , m_background(move(background))
         , m_underline(move(underline))
@@ -58,12 +80,15 @@ namespace drawtypes {
         , m_alignment(label_alignment)
         , m_ellipsis(ellipsis)
         , m_text(move(text))
+        , m_scroll(scroll)
+        , m_offset(offset)
+        , m_sep(move(sep))
         , m_tokenized(m_text)
         , m_tokens(forward<vector<token>>(tokens)) {
       assert(!m_ellipsis || (m_maxlen == 0 || m_maxlen >= 3));
     }
 
-    string get() const;
+    string get();
     explicit operator bool();
     label_t clone();
     void clear();
@@ -76,6 +101,9 @@ namespace drawtypes {
 
    private:
     string m_text{};
+    bool m_scroll;
+    size_t m_offset;
+    string m_sep{};
     string m_tokenized{};
     const vector<token> m_tokens{};
   };
