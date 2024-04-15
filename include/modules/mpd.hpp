@@ -32,6 +32,7 @@ namespace modules {
     static constexpr const char* EVENT_STOP = "stop";
     static constexpr const char* EVENT_PREV = "prev";
     static constexpr const char* EVENT_NEXT = "next";
+    static constexpr const char* EVENT_SHUFFLE = "shuffle";
     static constexpr const char* EVENT_REPEAT = "repeat";
     static constexpr const char* EVENT_SINGLE = "single";
     static constexpr const char* EVENT_RANDOM = "random";
@@ -44,6 +45,7 @@ namespace modules {
     void action_stop();
     void action_prev();
     void action_next();
+    void action_shuffle();
     void action_repeat();
     void action_single();
     void action_random();
@@ -62,6 +64,8 @@ namespace modules {
     static constexpr const char* TAG_LABEL_TIME{"<label-time>"};
     static constexpr const char* TAG_ICON_RANDOM{"<icon-random>"};
     static constexpr const char* TAG_ICON_REPEAT{"<icon-repeat>"};
+    static constexpr const char* TAG_HIGHLIGHT_START{"<highlight-start>"};
+    static constexpr const char* TAG_HIGHLIGHT_END{"<highlight-end>"};
     /*
      * Deprecated
      */
@@ -78,6 +82,7 @@ namespace modules {
     static constexpr const char* TAG_ICON_PLAY{"<icon-play>"};
     static constexpr const char* TAG_ICON_PAUSE{"<icon-pause>"};
     static constexpr const char* TAG_ICON_NEXT{"<icon-next>"};
+    static constexpr const char* TAG_ICON_SHUFFLE{"<icon-shuffle>"};
     static constexpr const char* TAG_ICON_SEEKB{"<icon-seekb>"};
     static constexpr const char* TAG_ICON_SEEKF{"<icon-seekf>"};
 
@@ -110,11 +115,16 @@ namespace modules {
     iconset_t m_icons;
     label_t m_label_song;
     label_t m_label_time;
+    label_t m_highlight_start;
+    label_t m_highlight_end;
     label_t m_label_offline;
 
     rgba m_toggle_on_color;
     rgba m_toggle_off_color;
+
+    string m_highlight_left;
+    string m_highlight_right;
   };
-}  // namespace modules
+} // namespace modules
 
 POLYBAR_NS_END

@@ -1,6 +1,8 @@
 #include "drawtypes/label.hpp"
 
+#include <chrono>
 #include <cmath>
+#include <iostream>
 #include <utility>
 
 #include "utils/string.hpp"
@@ -13,13 +15,16 @@ namespace drawtypes {
    *
    * Here tokens are replaced with values and minlen and maxlen properties are applied
    */
-  string label::get() const {
+  string label::get() {
     const size_t len = string_util::char_len(m_tokenized);
     if (len >= m_minlen) {
       string text = m_tokenized;
       if (m_maxlen > 0 && len > m_maxlen) {
         if (m_ellipsis) {
           text = string_util::utf8_truncate(std::move(text), m_maxlen - 3) + "...";
+        } else if (m_scroll) {
+          text = string_util::utf8_trim(std::move(text), m_sep, m_offset, m_maxlen);
+          m_offset++;
         } else {
           text = string_util::utf8_truncate(std::move(text), m_maxlen);
         }
@@ -308,7 +313,10 @@ namespace drawtypes {
         maxlen,
         label_alignment,
         ellipsis,
-        move(tokens));
+        move(tokens),
+        conf.get(section, name + "-scroll", false),
+        0,
+        conf.get(section, name + "-separator", ""s));
     // clang-format on
   }
 

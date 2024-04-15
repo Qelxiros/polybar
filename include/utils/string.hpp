@@ -84,6 +84,7 @@ string trim(string&& value, const char& needle = ' ');
 
 size_t char_len(const string& value);
 string utf8_truncate(string&& value, size_t len);
+string utf8_trim(string&& value, string& separator, size_t& offset, size_t len);
 [[nodiscard]] bool utf8_to_ucs4(const string& src, unicode_charlist& result_list);
 size_t ucs4_to_utf8(std::array<char, 5>& utf8, unsigned int ucs);
 
