@@ -248,25 +248,34 @@ namespace string_util {
     return forward<string>(value);
   }
 
-  string utf8_trim(string&& value, string& separator, size_t& offset, size_t len) {
+  string utf8_trim(string&& value, string& separator, size_t& offset, size_t target_len) {
     size_t str_len = value.length();
 
-    if (str_len < len) {
+    if (str_len < target_len) {
       return value;
     }
 
     string doubled = value + separator + value;
 
-    if (offset > 0) {
-      doubled.erase(0, offset - 1);
-    }
+    auto begin = doubled.begin();
+    auto it = doubled.begin();
+    auto end = doubled.end();
 
+    for (size_t i = 0; i < offset; ++i) {
+      if (it == end) {
+        break;
+      }
+      ++it;
+      it = std::find_if(it, end, [](char c) { return (c & UTF8_CONTINUATION_MASK) != UTF8_CONTINUATION_PREFIX; });
+    }
+    doubled.erase(begin, it);
+
+    it = doubled.begin();
+    end = doubled.end();
     // utf-8 bytes of the form 10xxxxxx are continuation bytes, so we
     // simply jump forward to bytes not of that form and truncate starting
     // at that byte if we've counted too many codepoints
-    auto it = doubled.begin();
-    auto end = doubled.end();
-    for (size_t i = offset; i < offset + len; ++i) {
+    for (size_t i = 0; i < target_len; ++i) {
       if (it == end) {
         break;
       }
